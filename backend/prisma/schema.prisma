@@ -1,0 +1,291 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  SALESPERSON
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  SPLIT
+}
+
+enum OrderStatus {
+  COMPLETED
+  CANCELLED
+  RETURNED
+  PARTIALLY_RETURNED
+}
+
+enum StockMovementType {
+  PURCHASE_RECEIPT
+  SALE_DEDUCTION
+  SALE_RETURN
+  DAMAGE_ADJUSTMENT
+  AUDIT_CORRECTION
+}
+
+model User {
+  id               String            @id @default(uuid())
+  employeeName     String
+  email            String?           @unique
+  username         String            @unique
+  passwordHash     String
+  role             Role              @default(SALESPERSON)
+  status           UserStatus        @default(ACTIVE)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  orders           Order[]
+  purchases        Purchase[]
+  stockAdjustments StockAdjustment[]
+  expenses         Expense[]
+}
+
+model Category {
+  id            String     @id @default(uuid())
+  name          String     @unique
+  parentId      String?
+  parent        Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  subCategories Category[] @relation("SubCategories")
+  status        Boolean    @default(true)
+  products      Product[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Brand {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  status    Boolean   @default(true)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          String           @id @default(uuid())
+  itemCode    String           @unique
+  name        String
+  description String?
+  categoryId  String
+  category    Category         @relation(fields: [categoryId], references: [id])
+  brandId     String?
+  brand       Brand?           @relation(fields: [brandId], references: [id])
+  hsnCode     String?
+  gstRate     Decimal          @default(5.0) @db.Decimal(5, 2)
+  status      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  variants    ProductVariant[]
+}
+
+model ProductVariant {
+  id                   String                @id @default(uuid())
+  productId            String
+  product              Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size                 String
+  color                String
+  sku                  String                @unique
+  barcode              String                @unique
+  costPrice            Decimal               @db.Decimal(12, 2)
+  mrp                  Decimal               @db.Decimal(12, 2)
+  sellingPrice         Decimal               @db.Decimal(12, 2)
+  defaultDiscount      Decimal               @default(0.0) @db.Decimal(5, 2)
+  currentStock         Int                   @default(0)
+  lowStockThreshold    Int                   @default(3)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  orderItems           OrderItem[]
+  purchaseItems        PurchaseItem[]
+  stockMovements       StockMovement[]
+  stockAdjustmentItems StockAdjustmentItem[]
+}
+
+model Customer {
+  id             String   @id @default(uuid())
+  name           String
+  phone          String   @unique
+  email          String?
+  loyaltyPoints  Int      @default(0)
+  totalPurchases Decimal  @default(0.0) @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orders         Order[]
+}
+
+model Supplier {
+  id            String     @id @default(uuid())
+  name          String
+  contactPerson String?
+  phone         String
+  email         String?
+  gstin         String?
+  address       String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  purchases     Purchase[]
+}
+
+model Purchase {
+  id              String         @id @default(uuid())
+  purchaseInvoice String
+  supplierId      String
+  supplier        Supplier       @relation(fields: [supplierId], references: [id])
+  purchaseDate    DateTime       @default(now())
+  totalAmount     Decimal        @db.Decimal(12, 2)
+  notes           String?
+  receivedById    String
+  receivedBy      User           @relation(fields: [receivedById], references: [id])
+  createdAt       DateTime       @default(now())
+  items           PurchaseItem[]
+}
+
+model PurchaseItem {
+  id               String         @id @default(uuid())
+  purchaseId       String
+  purchase         Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productVariantId String
+  variant          ProductVariant @relation(fields: [productVariantId], references: [id])
+  quantity         Int
+  costPricePerUnit Decimal        @db.Decimal(12, 2)
+  totalCost        Decimal        @db.Decimal(12, 2)
+}
+
+model Order {
+  id                 String          @id @default(uuid())
+  invoiceNumber      String          @unique
+  customerId         String?
+  customer           Customer?       @relation(fields: [customerId], references: [id])
+  userId             String
+  user               User            @relation(fields: [userId], references: [id])
+  subtotal           Decimal         @db.Decimal(12, 2)
+  itemDiscount       Decimal         @default(0.0) @db.Decimal(12, 2)
+  billDiscount       Decimal         @default(0.0) @db.Decimal(12, 2)
+  taxAmount          Decimal         @default(0.0) @db.Decimal(12, 2)
+  netAmount          Decimal         @db.Decimal(12, 2)
+  paymentMethod      PaymentMethod   @default(CASH)
+  cashPaid           Decimal?        @db.Decimal(12, 2)
+  digitalPaid        Decimal?        @db.Decimal(12, 2)
+  status             OrderStatus     @default(COMPLETED)
+  cancellationReason String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  items              OrderItem[]
+  returns            OrderReturn[]
+}
+
+model OrderItem {
+  id                String         @id @default(uuid())
+  orderId           String
+  order             Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId  String
+  variant           ProductVariant @relation(fields: [productVariantId], references: [id])
+  quantity          Int
+  mrpSnapshot       Decimal        @db.Decimal(12, 2)
+  unitPrice         Decimal        @db.Decimal(12, 2)
+  discountAmount    Decimal        @default(0.0) @db.Decimal(12, 2)
+  taxAmount         Decimal        @default(0.0) @db.Decimal(12, 2)
+  netAmount         Decimal        @db.Decimal(12, 2)
+  costPriceSnapshot Decimal        @db.Decimal(12, 2)
+}
+
+model OrderReturn {
+  id            String   @id @default(uuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+  refundAmount  Decimal  @db.Decimal(12, 2)
+  reason        String
+  processedById String
+  createdAt     DateTime @default(now())
+}
+
+model StockMovement {
+  id               String            @id @default(uuid())
+  productVariantId String
+  variant          ProductVariant    @relation(fields: [productVariantId], references: [id])
+  type             StockMovementType
+  quantity         Int
+  referenceId      String?
+  balanceAfter     Int
+  notes            String?
+  createdAt        DateTime          @default(now())
+}
+
+model StockAdjustment {
+  id             String                @id @default(uuid())
+  reason         String
+  authorizedById String
+  authorizedBy   User                  @relation(fields: [authorizedById], references: [id])
+  createdAt      DateTime              @default(now())
+  items          StockAdjustmentItem[]
+}
+
+model StockAdjustmentItem {
+  id               String          @id @default(uuid())
+  adjustmentId     String
+  adjustment       StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  productVariantId String
+  variant          ProductVariant  @relation(fields: [productVariantId], references: [id])
+  previousStock    Int
+  adjustedStock    Int
+  differenceQty    Int
+}
+
+model ExpenseCategory {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  expenses Expense[]
+}
+
+model Expense {
+  id           String          @id @default(uuid())
+  name         String
+  categoryId   String
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amount       Decimal         @db.Decimal(12, 2)
+  expenseDate  DateTime        @default(now())
+  paymentType  PaymentMethod   @default(CASH)
+  notes        String?
+  recordedById String
+  recordedBy   User            @relation(fields: [recordedById], references: [id])
+  createdAt    DateTime        @default(now())
+}
+
+model StoreSettings {
+  id                 Int      @id @default(1)
+  storeName          String   @default("ASRTEX Textile & Readymade")
+  addressLine1       String   @default("Main Bazaar Street")
+  addressLine2       String?
+  city               String   @default("Tiruppur")
+  state              String   @default("Tamil Nadu")
+  pincode            String   @default("641601")
+  phone              String   @default("+91 98765 43210")
+  email              String?
+  gstin              String?
+  gstEnabled         Boolean  @default(true)
+  currency           String   @default("INR")
+  currencySymbol     String   @default("₹")
+  invoicePrefix      String   @default("ASR-")
+  nextInvoiceNum     Int      @default(1001)
+  receiptFooter      String   @default("Thank you for shopping with ASRTEX! Goods once sold can be exchanged within 7 days.")
+  receiptPaperSize   String   @default("80mm")
+  printShopLogo      Boolean  @default(false)
+  printGstDetails    Boolean  @default(true)
+  barcodeLabelWidth  Int      @default(50)
+  barcodeLabelHeight Int      @default(25)
+  updatedAt          DateTime @updatedAt
+}
