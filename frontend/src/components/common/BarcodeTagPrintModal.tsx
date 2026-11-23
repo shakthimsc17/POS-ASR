@@ -21,6 +21,8 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
   const [orientation, setOrientation] = useState<'landscape' | 'rotated'>('landscape');
   // Vertical position offset to protect against bottom cutoff on Seznik 2" printer
   const [verticalPosition, setVerticalPosition] = useState<'top-safe' | 'high' | 'center'>('top-safe');
+  // Horizontal shift to align with Seznik paper roll feeding
+  const [horizontalShift, setHorizontalShift] = useState<'left-safe' | 'left-more' | 'center'>('left-safe');
 
   const labelWidth = settings?.barcodeLabelWidth || 50; // mm
   const labelHeight = settings?.barcodeLabelHeight || 25; // mm
@@ -29,15 +31,12 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
     if (isOpen && variant && variant.barcode) {
       try {
         const canvas = document.createElement('canvas');
-        // Compact barcode tailored for 50x25mm Seznik roll
+        // Professional retail barcode: taller high-contrast bars
         JsBarcode(canvas, variant.barcode, {
           format: 'CODE128',
-          width: 1.3,
-          height: 24, // Compact height leaves safety clearance at bottom
-          displayValue: true,
-          fontSize: 10,
-          font: 'monospace',
-          textMargin: 0,
+          width: 2.0, // High-contrast, dense bars for fast scanner reads
+          height: 48, // Increased vertical bar height for professional scan readability
+          displayValue: false, // Text is rendered via native HTML for 100% vector clarity
           margin: 0,
         });
         setBarcodeDataUrl(canvas.toDataURL('image/png'));
@@ -58,9 +57,15 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
 
   // Bottom padding to lift content away from Seznik bottom tear bar
   const bottomPaddingMm =
-    verticalPosition === 'high' ? '6mm' : verticalPosition === 'top-safe' ? '4.5mm' : '1.5mm';
+    verticalPosition === 'high' ? '4.5mm' : verticalPosition === 'top-safe' ? '2.8mm' : '1.5mm';
   const topPaddingMm =
-    verticalPosition === 'high' ? '0.5mm' : verticalPosition === 'top-safe' ? '1mm' : '2mm';
+    verticalPosition === 'high' ? '0.5mm' : verticalPosition === 'top-safe' ? '0.8mm' : '1.5mm';
+
+  // Left & right padding to shift content slightly to the left
+  const leftPaddingMm =
+    horizontalShift === 'left-more' ? '0.3mm' : horizontalShift === 'left-safe' ? '0.8mm' : '2mm';
+  const rightPaddingMm =
+    horizontalShift === 'left-more' ? '3.7mm' : horizontalShift === 'left-safe' ? '3.2mm' : '2mm';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -92,8 +97,8 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
             max-height: ${labelHeight}mm !important;
             margin: 0 !important;
             padding-top: ${topPaddingMm} !important;
-            padding-left: 2mm !important;
-            padding-right: 2mm !important;
+            padding-left: ${leftPaddingMm} !important;
+            padding-right: ${rightPaddingMm} !important;
             padding-bottom: ${bottomPaddingMm} !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
@@ -135,15 +140,15 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
         </div>
 
         {/* Configuration Controls */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-3 gap-3">
+        <div className="p-3 bg-slate-50 border-b border-slate-200 grid grid-cols-4 gap-2">
           {/* Quantity */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Copies:</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">Copies:</label>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setPrintCopies((c) => Math.max(1, c - 1))}
-                className="w-7 h-8 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 font-black text-sm"
+                className="w-6 h-7 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-black text-xs"
               >
                 -
               </button>
@@ -153,46 +158,60 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
                 max="50"
                 value={printCopies}
                 onChange={(e) => setPrintCopies(parseInt(e.target.value, 10) || 1)}
-                className="w-12 h-8 text-center font-black border border-slate-300 rounded-lg text-xs"
+                className="w-10 h-7 text-center font-black border border-slate-300 rounded text-xs"
               />
               <button
                 type="button"
                 onClick={() => setPrintCopies((c) => Math.min(50, c + 1))}
-                className="w-7 h-8 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 font-black text-sm"
+                className="w-6 h-7 bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-black text-xs"
               >
                 +
               </button>
             </div>
           </div>
 
+          {/* Horizontal Shift Control (User's request to move little bit left) */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">Horiz Shift:</label>
+            <select
+              value={horizontalShift}
+              onChange={(e) => setHorizontalShift(e.target.value as any)}
+              className="w-full h-7 px-1 border border-slate-300 rounded text-[11px] font-bold text-slate-700 bg-white"
+            >
+              <option value="left-safe">Left (-1.2mm)</option>
+              <option value="left-more">Left (-1.8mm)</option>
+              <option value="center">Center (0mm)</option>
+            </select>
+          </div>
+
           {/* Vertical Lift Control (Seznik Tear-Bar Safety) */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Position Lift:</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">Vert Lift:</label>
             <select
               value={verticalPosition}
               onChange={(e) => setVerticalPosition(e.target.value as any)}
-              className="w-full h-8 px-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 bg-white"
+              className="w-full h-7 px-1 border border-slate-300 rounded text-[11px] font-bold text-slate-700 bg-white"
             >
-              <option value="top-safe">Seznik Safe (+4.5mm)</option>
-              <option value="high">Max Lift (+6mm)</option>
-              <option value="center">Centered</option>
+              <option value="top-safe">Safe (+3mm)</option>
+              <option value="high">High (+4.5mm)</option>
+              <option value="center">Center</option>
             </select>
           </div>
 
           {/* Orientation */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Orientation:</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">Rotate:</label>
             <button
               type="button"
               onClick={() => setOrientation((o) => (o === 'landscape' ? 'rotated' : 'landscape'))}
-              className={`w-full h-8 px-2 rounded-lg text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+              className={`w-full h-7 px-1 rounded text-[11px] font-bold border flex items-center justify-center gap-1 transition-all ${
                 orientation === 'landscape'
                   ? 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                   : 'bg-emerald-600 text-white border-emerald-600'
               }`}
             >
-              <RotateCw className="w-3.5 h-3.5" />
-              {orientation === 'landscape' ? '50×25 Horiz' : 'Rotated 90°'}
+              <RotateCw className="w-3 h-3" />
+              {orientation === 'landscape' ? 'Standard' : 'Rotated'}
             </button>
           </div>
         </div>
@@ -225,47 +244,53 @@ export const BarcodeTagPrintModal: React.FC<BarcodeTagPrintModalProps> = ({
                 style={{
                   paddingTop: topPaddingMm,
                   paddingBottom: bottomPaddingMm,
-                  paddingLeft: '2mm',
-                  paddingRight: '2mm',
+                  paddingLeft: leftPaddingMm,
+                  paddingRight: rightPaddingMm,
                 }}
                 className="barcode-label-sticker w-[50mm] h-[25mm] max-w-[50mm] max-h-[25mm] bg-white border border-slate-400 rounded shadow flex flex-col justify-start text-black font-sans box-border overflow-hidden select-none"
               >
-                {/* Top Row: Store Name & Garment Name */}
+                {/* Top Row: Store Name & Garment Name (Uniform text-xs font) */}
                 <div className="flex items-center justify-between leading-none pb-0.5 border-b border-black">
-                  <span className="text-[10px] font-black tracking-tight uppercase truncate max-w-[22mm] text-black">
+                  <span className="text-xs font-black tracking-tight uppercase truncate max-w-[22mm] text-black">
                     {settings?.storeName || 'ASRTEX'}
                   </span>
-                  <span className="text-[10px] font-black text-black truncate max-w-[24mm] text-right">
+                  <span className="text-xs font-black text-black uppercase truncate max-w-[24mm] text-right">
                     {variant.productName || 'Garment'}
                   </span>
                 </div>
 
-                {/* Middle: Compact Barcode Image */}
-                <div className="flex justify-center items-center my-0.5 h-[9.5mm] overflow-hidden">
+                {/* Middle: Taller High-Contrast Barcode Bars */}
+                <div className="flex justify-center items-center my-0.5 h-[11mm] overflow-hidden">
                   {barcodeDataUrl ? (
                     <img
                       src={barcodeDataUrl}
                       alt={variant.barcode}
-                      className="h-[9.5mm] max-w-[46mm] object-contain"
+                      className="h-[11mm] max-w-[46mm] object-contain"
+                      style={{ imageRendering: 'pixelated' }}
                     />
                   ) : (
-                    <span className="text-[9px] text-slate-400">Generating...</span>
+                    <span className="text-xs text-slate-400">Generating...</span>
                   )}
                 </div>
 
-                {/* Bottom Row (Lifted up directly beneath barcode): Size, Color, MRP and Selling Price */}
-                <div className="flex items-center justify-between border-t-2 border-black pt-1 leading-none">
-                  <div className="text-[11px] font-black text-black truncate max-w-[25mm]">
-                    Size: <span className="font-black text-sm">{variant.size}</span>
-                    <span className="font-bold ml-1 text-[9px] text-slate-800">({variant.color})</span>
+                {/* Native Vector Monospace Barcode Number (Uniform text-xs font) */}
+                <div className="text-center font-mono font-black text-xs tracking-widest text-black leading-none mb-0.5">
+                  {variant.barcode}
+                </div>
+
+                {/* Bottom Row: Size, Color, MRP and Selling Price (Uniform text-xs font) */}
+                <div className="flex items-center justify-between border-t-2 border-black pt-0.5 leading-none">
+                  <div className="text-xs font-black text-black truncate max-w-[24mm]">
+                    Size: <span className="font-black">{variant.size}</span>
+                    <span className="font-bold ml-1 text-slate-800">({variant.color})</span>
                   </div>
-                  <div className="text-right leading-none flex items-baseline gap-1.5">
+                  <div className="text-right leading-none flex items-baseline gap-1.5 text-xs">
                     {Number(variant.mrp) > Number(variant.sellingPrice) && (
-                      <span className="line-through text-black text-[10px] font-bold">
+                      <span className="line-through text-black font-bold">
                         ₹{variant.mrp}
                       </span>
                     )}
-                    <span className="font-black text-sm text-black">
+                    <span className="font-black text-black">
                       ₹{variant.sellingPrice}
                     </span>
                   </div>
