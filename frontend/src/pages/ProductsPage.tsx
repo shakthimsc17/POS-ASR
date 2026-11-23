@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   X,
   Layers,
+  Edit3,
+  Trash2,
 } from 'lucide-react';
 import api from '../services/api';
 import { Product, ProductVariant, Category, Brand, StoreSettings } from '../types';
@@ -33,6 +35,15 @@ export const ProductsPage: React.FC = () => {
 
   // Barcode Label Print Modal State
   const [printingVariant, setPrintingVariant] = useState<(ProductVariant & { productName?: string; itemCode?: string }) | null>(null);
+
+  // Edit Garment Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState('');
+  const [editBrandId, setEditBrandId] = useState('');
+  const [editStatus, setEditStatus] = useState(true);
+  const [editVariants, setEditVariants] = useState<any[]>([]);
 
   // New Product Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -152,6 +163,69 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const handleOpenEdit = (product: Product) => {
+    setEditingProduct(product);
+    setEditName(product.name);
+    setEditCategoryId(product.categoryId);
+    setEditBrandId(product.brandId || '');
+    setEditStatus(product.status);
+    setEditVariants(
+      product.variants.map((v) => ({
+        id: v.id,
+        size: v.size,
+        color: v.color,
+        barcode: v.barcode,
+        costPrice: v.costPrice ?? 0,
+        mrp: v.mrp,
+        sellingPrice: v.sellingPrice,
+        defaultDiscount: v.defaultDiscount || 0,
+        currentStock: v.currentStock,
+      }))
+    );
+    setIsEditModalOpen(true);
+  };
+
+  const handleAddNewVariantRow = () => {
+    setEditVariants((prev) => [
+      ...prev,
+      {
+        size: 'Free Size',
+        color: 'Standard',
+        barcode: `${Math.floor(100000000000 + Math.random() * 900000000000)}`,
+        costPrice: 400,
+        mrp: 999,
+        sellingPrice: 799,
+        defaultDiscount: 0,
+        currentStock: 0,
+      },
+    ]);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || !editName.trim() || !editCategoryId) {
+      alert('Please fill garment name and category');
+      return;
+    }
+
+    try {
+      await api.put(`/products/${editingProduct.id}`, {
+        name: editName.trim(),
+        categoryId: editCategoryId,
+        brandId: editBrandId || null,
+        status: editStatus,
+        variants: editVariants,
+      });
+
+      setIsEditModalOpen(false);
+      setEditingProduct(null);
+      loadProducts();
+      alert('Garment details and variants updated successfully!');
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update garment');
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
       {/* Top Header */}
@@ -218,12 +292,13 @@ export const ProductsPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Variants</th>
                 <th className="py-3 px-4 text-center">Total Stock</th>
                 <th className="py-3 px-4 text-right">Price Range</th>
+                {isAdmin && <th className="py-3 px-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={isAdmin ? 9 : 8} className="py-12 text-center text-slate-400">
                     No products found matching filters.
                   </td>
                 </tr>
@@ -263,16 +338,41 @@ export const ProductsPage: React.FC = () => {
                         <td className="py-3 px-4 text-right font-extrabold text-slate-900">
                           {minPrice === maxPrice ? `₹${minPrice}` : `₹${minPrice} - ₹${maxPrice}`}
                         </td>
+                        {isAdmin && (
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEdit(product);
+                              }}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-lg text-[11px] font-bold inline-flex items-center gap-1.5 transition-colors border border-slate-200"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                              Edit
+                            </button>
+                          </td>
+                        )}
                       </tr>
 
                       {/* Expanded Variants Drawer */}
                       {isExpanded && (
                         <tr className="bg-slate-50/70">
-                          <td colSpan={8} className="p-4 pl-14">
+                          <td colSpan={isAdmin ? 9 : 8} className="p-4 pl-14">
                             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3">
-                                Available Size & Color Variants ({product.variants.length})
-                              </h4>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                  Available Size & Color Variants ({product.variants.length})
+                                </h4>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleOpenEdit(product)}
+                                    className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[11px] font-bold inline-flex items-center gap-1.5 transition-colors border border-emerald-200"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    Edit Garment & Pricing
+                                  </button>
+                                )}
+                              </div>
                               <table className="w-full text-left text-xs">
                                 <thead>
                                   <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase">
@@ -556,6 +656,281 @@ export const ProductsPage: React.FC = () => {
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20"
                 >
                   Save Garment & All Variants
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Garment Master & Variants Modal */}
+      {isEditModalOpen && editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="font-bold text-base">Edit Garment: {editingProduct.name}</h3>
+                  <p className="text-[11px] text-slate-400">
+                    SKU Code: <span className="font-mono text-emerald-300 font-bold">{editingProduct.itemCode}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProduct} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Garment Master Info */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Garment Master Details</h4>
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Item Code</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={editingProduct.itemCode}
+                      className="w-full px-3 py-2 bg-slate-200 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-600 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Garment Master Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+                    <select
+                      value={editStatus ? 'active' : 'inactive'}
+                      onChange={(e) => setEditStatus(e.target.value === 'active')}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Category *</label>
+                    <select
+                      required
+                      value={editCategoryId}
+                      onChange={(e) => setEditCategoryId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700"
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Brand (Optional)</label>
+                    <select
+                      value={editBrandId}
+                      onChange={(e) => setEditBrandId(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700"
+                    >
+                      <option value="">No Brand / Generic</option>
+                      {brands.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Variants & Pricing Table */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Variants & Pricing ({editVariants.length})
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Edit size, color, barcode, cost price, MRP, selling price, and default discount %.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddNewVariantRow}
+                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold inline-flex items-center gap-1 border border-emerald-200 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Variant
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-72 overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-[10px] font-bold text-slate-600 uppercase sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2.5 px-3">Size</th>
+                        <th className="py-2.5 px-3">Color</th>
+                        <th className="py-2.5 px-3">Barcode</th>
+                        {isAdmin && <th className="py-2.5 px-3 text-right">Cost (₹)</th>}
+                        <th className="py-2.5 px-3 text-right">MRP (₹)</th>
+                        <th className="py-2.5 px-3 text-right">Selling (₹)</th>
+                        <th className="py-2.5 px-3 text-center">Disc %</th>
+                        <th className="py-2.5 px-3 text-center">Stock</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {editVariants.map((v, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-2">
+                            <input
+                              type="text"
+                              value={v.size}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditVariants((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, size: val } : item))
+                                );
+                              }}
+                              className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-xs font-bold"
+                            />
+                          </td>
+                          <td className="py-2 px-2">
+                            <input
+                              type="text"
+                              value={v.color}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditVariants((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, color: val } : item))
+                                );
+                              }}
+                              className="w-24 px-2 py-1 border border-slate-300 rounded-lg text-xs"
+                            />
+                          </td>
+                          <td className="py-2 px-2">
+                            <input
+                              type="text"
+                              value={v.barcode}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditVariants((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, barcode: val } : item))
+                                );
+                              }}
+                              className="w-32 px-2 py-1 border border-slate-300 rounded-lg text-xs font-mono"
+                            />
+                          </td>
+                          {isAdmin && (
+                            <td className="py-2 px-2 text-right">
+                              <input
+                                type="number"
+                                step="any"
+                                value={v.costPrice}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setEditVariants((prev) =>
+                                    prev.map((item, i) => (i === idx ? { ...item, costPrice: val } : item))
+                                  );
+                                }}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-xs text-right font-medium"
+                              />
+                            </td>
+                          )}
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              step="any"
+                              value={v.mrp}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setEditVariants((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, mrp: val } : item))
+                                );
+                              }}
+                              className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-xs text-right font-medium text-slate-700"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              step="any"
+                              value={v.sellingPrice}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setEditVariants((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val } : item))
+                                );
+                              }}
+                              className="w-20 px-2 py-1 border border-emerald-300 rounded-lg text-xs text-right font-bold text-emerald-800"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={v.defaultDiscount || 0}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setEditVariants((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, defaultDiscount: val } : item))
+                                );
+                              }}
+                              className="w-16 px-2 py-1 border border-emerald-300 rounded-lg text-xs text-center font-bold text-emerald-600"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            <span
+                              className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-semibold text-[11px]"
+                              title="Stock is updated via Purchases or Adjustments"
+                            >
+                              {v.currentStock ?? 0}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 italic">
+                  * Note: Stock quantities cannot be overwritten directly. They are maintained automatically through Purchase Entries and Stock Adjustments for inventory audit integrity.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-4 border-t border-slate-200 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingProduct(null);
+                  }}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+                >
+                  Update Garment Master & Variants
                 </button>
               </div>
             </form>
