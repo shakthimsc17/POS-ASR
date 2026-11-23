@@ -70,7 +70,12 @@ export const ProductsPage: React.FC = () => {
     loadProducts();
     api.get('/categories').then((res) => setCategories(res.data.categories || [])).catch(console.error);
     api.get('/categories/brands/all').then((res) => setBrands(res.data.brands || [])).catch(console.error);
-    api.get('/settings').then((res) => setSettings(res.data.settings)).catch(console.error);
+    api.get('/settings').then((res) => {
+      setSettings(res.data.settings);
+      if (!res.data.settings?.gstEnabled) {
+        setNewGstRate(0);
+      }
+    }).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -399,16 +404,18 @@ export const ProductsPage: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">GST Rate (%)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={newGstRate}
-                    onChange={(e) => setNewGstRate(parseFloat(e.target.value) || 5.0)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold"
-                  />
-                </div>
+                {settings?.gstEnabled && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">GST Rate (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={newGstRate}
+                      onChange={(e) => setNewGstRate(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Variant Matrix Generator Box */}

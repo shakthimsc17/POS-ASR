@@ -66,6 +66,9 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
               {settings?.printGstDetails && settings?.gstin && (
                 <p className="text-[10px] font-semibold">GSTIN: {settings.gstin}</p>
               )}
+              <p className="text-[9px] font-bold tracking-widest uppercase mt-0.5">
+                {settings?.gstEnabled && settings?.gstin ? 'TAX INVOICE' : 'RETAIL CASH MEMO'}
+              </p>
             </div>
 
             {/* Invoice Meta */}
@@ -153,8 +156,9 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
 
             {/* Footer Notice */}
             <div className="pt-3 text-center text-[9px] leading-relaxed">
-              <p className="font-semibold">{settings?.receiptFooter || 'Thank you for your visit!'}</p>
-              <p className="pt-1 text-slate-600">Goods once sold can be exchanged within 7 days.</p>
+              {settings?.receiptFooter && (
+                <p className="font-semibold">{settings.receiptFooter}</p>
+              )}
               <p className="text-[8px] text-slate-500 pt-1">*** Software Powered by ASRTEX POS ***</p>
             </div>
           </div>

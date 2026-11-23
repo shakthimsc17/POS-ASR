@@ -281,7 +281,7 @@ model StoreSettings {
   currencySymbol     String   @default("₹")
   invoicePrefix      String   @default("ASR-")
   nextInvoiceNum     Int      @default(1001)
-  receiptFooter      String   @default("Thank you for shopping with ASRTEX! Goods once sold can be exchanged within 7 days.")
+  receiptFooter      String   @default("Thank you for shopping with ASRTEX! Please visit again.")
   receiptPaperSize   String   @default("80mm")
   printShopLogo      Boolean  @default(false)
   printGstDetails    Boolean  @default(true)

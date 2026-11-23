@@ -24,7 +24,7 @@ async function main() {
         currencySymbol: '₹',
         invoicePrefix: 'ASR-',
         nextInvoiceNum: 1001,
-        receiptFooter: 'Thank you for shopping at ASRTEX! Exchange within 7 days with original receipt.',
+        receiptFooter: 'Thank you for shopping at ASRTEX! Please visit again.',
         receiptPaperSize: '80mm',
         printShopLogo: false,
         printGstDetails: true,
