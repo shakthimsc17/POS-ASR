@@ -258,6 +258,19 @@ export const SettingsPage: React.FC = () => {
                     Print GSTIN number on receipts
                   </label>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showMrpOnReceipt"
+                    checked={settings.showMrpOnReceipt !== false}
+                    onChange={(e) => setSettings({ ...settings, showMrpOnReceipt: e.target.checked })}
+                    className="w-4 h-4 text-emerald-600 rounded"
+                  />
+                  <label htmlFor="showMrpOnReceipt" className="text-xs text-slate-700">
+                    Show Total MRP & Customer Savings Banner on receipts
+                  </label>
+                </div>
               </div>
             </div>
 

@@ -196,6 +196,7 @@ export interface StoreSettings {
   receiptPaperSize: '58mm' | '80mm';
   printShopLogo: boolean;
   printGstDetails: boolean;
+  showMrpOnReceipt: boolean;
   barcodeLabelWidth: number;
   barcodeLabelHeight: number;
 }

@@ -9,24 +9,31 @@ A modern, high-speed retail Point of Sale, multi-attribute apparel inventory, an
 1. **Separation of Master Products & Variants**:
    - Master style details (Item Code, Brand, Category, Tax rate).
    - Variant Matrix: Garment Size $\times$ Color combinations with unique Code-128 barcodes and isolated stock levels.
-2. **Sub-150ms POS Fast Billing**:
+2. **Sub-150ms POS Fast Billing & Auto-Discounts**:
    - USB Barcode Scanner Wedge auto-listener (scans directly without requiring click/focus).
+   - Item-level default discount engine: Automatically applies promotional markdown upon barcode scan.
+   - Live Total MRP and Total Customer Savings badges displayed dynamically in the billing cart.
    - Keyboard-first controls: `F1` (Barcode), `F2` (Item Search), `F8` (Payment method toggle), `F9` (Checkout & Print).
    - Multi-payment support: Cash, Card, UPI / GPay, and Split Payments.
    - Atomic stock decrement upon invoice generation.
-3. **Audit-Grade Financial Integrity**:
+3. **Bulk CSV Garment & Category Import**:
+   - One-click "Download Sample CSV" (`textile_items_sample.csv`).
+   - Drag-and-drop CSV importer with live error validation and preview table.
+   - Auto-creates missing categories/brands, upserts styles, generates barcodes for blank rows, and records opening stock audit entries.
+4. **Audit-Grade Financial Integrity**:
    - Frozen Cost Price snapshot (`costPriceSnapshot`) at time of sale.
    - P&L Computation: $\text{Gross Profit} = \text{Net Sales} - \text{COGS}$, $\text{Net Operating Profit} = \text{Gross Profit} - \text{Expenses}$.
    - Immutable invoices: Completed bills cannot be quietly edited. Corrections are handled via documented Returns or authorized Cancellations with restock audit trails.
-4. **Purchase Inward Entry**:
+5. **Purchase Inward Entry**:
    - Record supplier bills, line items, and received quantities.
    - Automatically increments current stock and updates supplier purchase ledger.
-5. **Physical Stock Adjustments**:
+6. **Physical Stock Adjustments**:
    - Dedicated workflow for soiled garments, try-room damage, and physical audit discrepancies.
-6. **Dual Hardware Printer Configurations**:
+7. **Dual Hardware Printer Configurations & Savings Banner**:
    - **Billing Receipt Printer**: Formatted for 58mm and 80mm continuous thermal paper rolls.
+   - **Customer Savings Psychology**: Displays Item MRP, Total MRP Value, Subtotal, and highlighted banner: `🎉 YOU SAVED A TOTAL OF ₹XXX.00! 🎉` (toggleable in Settings).
    - **Barcode Label Printer**: Prints garment stickers (50mm $\times$ 25mm) with store name, barcode, size, color, MRP, and selling price.
-7. **Automated Daily Backups**:
+8. **Automated Daily Backups**:
    - Automated PowerShell script calling `pg_dump` with a 30-day retention policy.
 
 ---

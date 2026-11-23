@@ -32,6 +32,12 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
     minute: '2-digit',
   });
 
+  const totalMrpValue = order.items.reduce(
+    (sum, item) => sum + (Number(item.mrpSnapshot) || Number(item.unitPrice)) * item.quantity,
+    0
+  );
+  const totalCustomerSavings = Math.max(0, totalMrpValue - Number(order.netAmount));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       {/* Modal Dialog for On-Screen Review */}
@@ -106,6 +112,11 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                         <div className="font-semibold">{item.variant.product.name}</div>
                         <div className="text-[9px] text-slate-600">
                           {item.variant.size} / {item.variant.color}
+                          {settings?.showMrpOnReceipt !== false && Number(item.mrpSnapshot) > 0 && (
+                            <span className="ml-1 text-slate-500 font-mono">
+                              (MRP: ₹{Number(item.mrpSnapshot).toFixed(0)})
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-1 text-center">{item.quantity}</td>
@@ -119,6 +130,12 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
 
             {/* Totals & Discounts */}
             <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px]">
+              {settings?.showMrpOnReceipt !== false && totalMrpValue > Number(order.subtotal) && (
+                <div className="flex justify-between text-slate-700">
+                  <span>Total MRP Value:</span>
+                  <span className="line-through">₹{totalMrpValue.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Subtotal:</span>
                 <span>₹{Number(order.subtotal).toFixed(2)}</span>
@@ -139,6 +156,12 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                 <span>NET PAYABLE:</span>
                 <span>₹{Number(order.netAmount).toFixed(2)}</span>
               </div>
+
+              {settings?.showMrpOnReceipt !== false && totalCustomerSavings > 0 && (
+                <div className="my-2 py-1.5 px-2 border border-dashed border-black text-center font-bold text-[10px] tracking-wide">
+                  🎉 YOU SAVED A TOTAL OF ₹{totalCustomerSavings.toFixed(2)}! 🎉
+                </div>
+              )}
 
               {order.paymentMethod === 'SPLIT' && (
                 <div className="pt-1 text-[9px] text-slate-700">

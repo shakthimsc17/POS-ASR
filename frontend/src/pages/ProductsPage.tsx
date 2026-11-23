@@ -49,6 +49,7 @@ export const ProductsPage: React.FC = () => {
   const [defaultCostPrice, setDefaultCostPrice] = useState('400');
   const [defaultSellingPrice, setDefaultSellingPrice] = useState('799');
   const [defaultMrp, setDefaultMrp] = useState('999');
+  const [defaultDiscountPct, setDefaultDiscountPct] = useState('0');
   const [matrixVariants, setMatrixVariants] = useState<any[]>([]);
 
   // Load Initial Data
@@ -111,7 +112,7 @@ export const ProductsPage: React.FC = () => {
           costPrice: parseFloat(defaultCostPrice) || 0,
           mrp: parseFloat(defaultMrp) || 0,
           sellingPrice: parseFloat(defaultSellingPrice) || 0,
-          defaultDiscount: 0,
+          defaultDiscount: parseFloat(defaultDiscountPct) || 0,
           currentStock: 10,
           lowStockThreshold: 3,
         });
@@ -282,6 +283,7 @@ export const ProductsPage: React.FC = () => {
                                     {isAdmin && <th className="pb-2 text-right">Cost Price</th>}
                                     <th className="pb-2 text-right">MRP</th>
                                     <th className="pb-2 text-right">Selling Price</th>
+                                    <th className="pb-2 text-center">Disc %</th>
                                     {isAdmin && <th className="pb-2 text-right">Gross Margin</th>}
                                     <th className="pb-2 text-right">Action</th>
                                   </tr>
@@ -298,6 +300,9 @@ export const ProductsPage: React.FC = () => {
                                       )}
                                       <td className="py-2 text-right text-slate-400 line-through">₹{v.mrp}</td>
                                       <td className="py-2 text-right font-bold text-emerald-700">₹{v.sellingPrice}</td>
+                                      <td className="py-2 text-center font-semibold text-emerald-600">
+                                        {Number(v.defaultDiscount) > 0 ? `${v.defaultDiscount}%` : '—'}
+                                      </td>
                                       {isAdmin && (
                                         <td className="py-2 text-right font-semibold text-emerald-600">
                                           ₹{v.marginAmount} ({v.marginPercentage})
@@ -457,23 +462,14 @@ export const ProductsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Default Cost Price (₹)</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Default Cost (₹)</label>
                     <input
                       type="number"
                       value={defaultCostPrice}
                       onChange={(e) => setDefaultCostPrice(e.target.value)}
                       className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Default Selling Price (₹)</label>
-                    <input
-                      type="number"
-                      value={defaultSellingPrice}
-                      onChange={(e) => setDefaultSellingPrice(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-emerald-800"
                     />
                   </div>
                   <div>
@@ -483,6 +479,27 @@ export const ProductsPage: React.FC = () => {
                       value={defaultMrp}
                       onChange={(e) => setDefaultMrp(e.target.value)}
                       className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Selling Price (₹)</label>
+                    <input
+                      type="number"
+                      value={defaultSellingPrice}
+                      onChange={(e) => setDefaultSellingPrice(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-emerald-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Default Disc (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={defaultDiscountPct}
+                      onChange={(e) => setDefaultDiscountPct(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-emerald-600"
                     />
                   </div>
                 </div>
@@ -502,6 +519,7 @@ export const ProductsPage: React.FC = () => {
                         <th className="py-2 px-3">Barcode</th>
                         <th className="py-2 px-3">Cost Price</th>
                         <th className="py-2 px-3">Selling Price</th>
+                        <th className="py-2 px-3 text-center">Disc %</th>
                         <th className="py-2 px-3">Stock</th>
                       </tr>
                     </thead>
@@ -513,6 +531,9 @@ export const ProductsPage: React.FC = () => {
                           <td className="py-1.5 px-3 font-mono text-[11px]">{mv.barcode}</td>
                           <td className="py-1.5 px-3">₹{mv.costPrice}</td>
                           <td className="py-1.5 px-3 font-bold text-emerald-700">₹{mv.sellingPrice}</td>
+                          <td className="py-1.5 px-3 text-center font-bold text-emerald-600">
+                            {mv.defaultDiscount > 0 ? `${mv.defaultDiscount}%` : '—'}
+                          </td>
                           <td className="py-1.5 px-3 font-semibold">{mv.currentStock}</td>
                         </tr>
                       ))}

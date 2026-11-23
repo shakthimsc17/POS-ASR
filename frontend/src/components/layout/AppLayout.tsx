@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -29,6 +30,7 @@ export const AppLayout: React.FC = () => {
     { label: 'POS Billing', path: '/pos', icon: ShoppingCart, hotkey: 'F1', badge: 'Fast' },
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Products & Stock', path: '/products', icon: Shirt },
+    { label: 'CSV Bulk Import', path: '/import', icon: FileSpreadsheet, adminOnly: true },
     { label: 'Purchases (Inward)', path: '/purchases', icon: Truck, adminOnly: true },
     { label: 'Inventory & Alerts', path: '/inventory', icon: Boxes },
     { label: 'Order History', path: '/orders', icon: Receipt },

@@ -13,6 +13,7 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ImportProductsPage } from './pages/ImportProductsPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; adminOnly?: boolean }> = ({
   children,
@@ -58,6 +59,14 @@ export const App: React.FC = () => {
             <Route path="pos" element={<POSBillingPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route
+              path="import"
+              element={
+                <ProtectedRoute adminOnly>
+                  <ImportProductsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="purchases"
               element={

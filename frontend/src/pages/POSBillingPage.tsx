@@ -50,6 +50,8 @@ export const POSBillingPage: React.FC = () => {
 
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const lastScanRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
+  const isScanningRef = useRef<boolean>(false);
 
   // Load Settings
   useEffect(() => {
@@ -92,10 +94,24 @@ export const POSBillingPage: React.FC = () => {
     },
   });
 
-  // Handle Barcode Lookup
+  // Handle Barcode Lookup with Deduplication Guard
   const handleLookupBarcode = async (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
+
+    // Prevent double-scan within 600ms or concurrent execution (e.g. input onKeyDown + global scanner hook)
+    const now = Date.now();
+    if (
+      isScanningRef.current ||
+      (lastScanRef.current.code === trimmed && now - lastScanRef.current.time < 600)
+    ) {
+      setBarcodeInput('');
+      return;
+    }
+
+    lastScanRef.current = { code: trimmed, time: now };
+    isScanningRef.current = true;
+    setBarcodeInput('');
 
     try {
       setErrorNotice(null);
@@ -103,7 +119,7 @@ export const POSBillingPage: React.FC = () => {
       const data = res.data;
       const v = data.variant;
 
-      // Add directly to cart
+      // Add directly to cart with initial quantity 1
       addToCart({
         variantId: v.id,
         productId: v.productId,
@@ -115,15 +131,17 @@ export const POSBillingPage: React.FC = () => {
         unitPrice: Number(v.sellingPrice),
         mrp: Number(v.mrp),
         quantity: 1,
-        discountAmount: (Number(v.sellingPrice) * Number(v.defaultDiscount)) / 100,
+        discountAmount: (Number(v.sellingPrice) * Number(v.defaultDiscount || 0)) / 100,
         taxAmount: (Number(v.sellingPrice) * data.gstRate) / 100,
         gstRate: data.gstRate,
         availableStock: v.currentStock,
       });
-
-      setBarcodeInput('');
     } catch (err: any) {
       setErrorNotice(err.response?.data?.error || `Barcode "${trimmed}" not recognized in inventory`);
+    } finally {
+      setTimeout(() => {
+        isScanningRef.current = false;
+      }, 300);
     }
   };
 
@@ -209,12 +227,14 @@ export const POSBillingPage: React.FC = () => {
   };
 
   // Financial Calculations
+  const totalMrp = cart.reduce((sum, item) => sum + (item.mrp || item.unitPrice) * item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const totalItemDiscounts = cart.reduce((sum, item) => sum + item.discountAmount * item.quantity, 0);
   const totalGst = storeSettings?.gstEnabled
     ? cart.reduce((sum, item) => sum + ((item.unitPrice * item.gstRate) / 100) * item.quantity, 0)
     : 0;
   const netPayable = Math.max(0, subtotal - totalItemDiscounts - billDiscount + totalGst);
+  const totalSavings = Math.max(0, totalMrp - netPayable);
 
   // Complete Checkout Sale
   const handleCheckout = async () => {
@@ -349,7 +369,7 @@ export const POSBillingPage: React.FC = () => {
                       unitPrice: item.sellingPrice,
                       mrp: item.mrp,
                       quantity: 1,
-                      discountAmount: 0,
+                      discountAmount: (item.sellingPrice * (item.defaultDiscount || 0)) / 100,
                       taxAmount: ((item.sellingPrice * item.gstRate) / 100),
                       gstRate: item.gstRate,
                       availableStock: item.currentStock,
@@ -451,6 +471,11 @@ export const POSBillingPage: React.FC = () => {
                   <p className="text-[10px] text-slate-500">
                     {item.size} • {item.color} • <span className="font-mono text-slate-400">{item.barcode}</span>
                   </p>
+                  {item.discountAmount > 0 && (
+                    <span className="inline-block mt-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Save ₹{(item.discountAmount * item.quantity).toFixed(0)} ({((item.discountAmount / item.unitPrice) * 100).toFixed(0)}% Off)
+                    </span>
+                  )}
                 </div>
 
                 {/* Qty Adjustment */}
@@ -472,8 +497,13 @@ export const POSBillingPage: React.FC = () => {
 
                 {/* Net Price */}
                 <div className="col-span-2 text-right">
+                  {item.discountAmount > 0 && (
+                    <span className="block text-[10px] text-slate-400 line-through">
+                      ₹{(item.unitPrice * item.quantity).toFixed(2)}
+                    </span>
+                  )}
                   <span className="font-extrabold text-sm text-slate-900">
-                    ₹{(item.unitPrice * item.quantity).toFixed(2)}
+                    ₹{((item.unitPrice - item.discountAmount) * item.quantity).toFixed(2)}
                   </span>
                 </div>
 
@@ -495,10 +525,24 @@ export const POSBillingPage: React.FC = () => {
         <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
           {/* Subtotal & Discounts */}
           <div className="space-y-1.5 text-xs">
+            {totalMrp > subtotal && (
+              <div className="flex justify-between text-slate-500">
+                <span>Total MRP Value:</span>
+                <span className="line-through">₹{totalMrp.toFixed(2)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between text-slate-600">
               <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items):</span>
               <span className="font-semibold text-slate-900">₹{subtotal.toFixed(2)}</span>
             </div>
+
+            {totalItemDiscounts > 0 && (
+              <div className="flex justify-between text-emerald-700 font-semibold">
+                <span>Item Promotional Discounts:</span>
+                <span>-₹{totalItemDiscounts.toFixed(2)}</span>
+              </div>
+            )}
 
             <div className="flex items-center justify-between text-slate-600">
               <span className="flex items-center gap-1">
@@ -529,6 +573,12 @@ export const POSBillingPage: React.FC = () => {
               <span className="font-bold text-sm text-slate-800">NET PAYABLE:</span>
               <span className="font-black text-2xl text-emerald-700">₹{netPayable.toFixed(2)}</span>
             </div>
+
+            {totalSavings > 0 && (
+              <div className="p-2 bg-emerald-100/70 border border-emerald-300 rounded-xl text-center text-xs font-bold text-emerald-900 mt-2">
+                🎉 Total Customer Savings: ₹{totalSavings.toFixed(2)}!
+              </div>
+            )}
           </div>
 
           {/* Payment Method Selector */}

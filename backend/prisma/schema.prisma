@@ -285,6 +285,7 @@ model StoreSettings {
   receiptPaperSize   String   @default("80mm")
   printShopLogo      Boolean  @default(false)
   printGstDetails    Boolean  @default(true)
+  showMrpOnReceipt   Boolean  @default(true)
   barcodeLabelWidth  Int      @default(50)
   barcodeLabelHeight Int      @default(25)
   updatedAt          DateTime @updatedAt

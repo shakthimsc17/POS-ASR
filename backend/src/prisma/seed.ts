@@ -28,9 +28,10 @@ async function main() {
         receiptPaperSize: '80mm',
         printShopLogo: false,
         printGstDetails: true,
+        showMrpOnReceipt: true,
         barcodeLabelWidth: 50,
         barcodeLabelHeight: 25,
-      },
+      } as any,
     });
     console.log('✓ Store settings initialized');
   }
