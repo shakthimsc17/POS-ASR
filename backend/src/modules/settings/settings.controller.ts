@@ -84,3 +84,53 @@ export const updateStoreSettings = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Failed to update settings' });
   }
 };
+
+export const resetDatabase = async (req: Request, res: Response) => {
+  try {
+    const { resetScope = 'TRANSACTIONS_ONLY', startingInvoiceNumber = 1001, confirmationPhrase } = req.body;
+
+    if (confirmationPhrase !== 'RESET-ASRTEX') {
+      return res.status(400).json({
+        error: 'Invalid confirmation phrase. Please type RESET-ASRTEX exactly to proceed.',
+      });
+    }
+
+    const nextInvoiceNum = parseInt(startingInvoiceNumber, 10) || 1001;
+
+    // Execute atomic truncation transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Wipe Sales Orders, Items, Returns, Stock Movements, Adjustments, Purchases, Suppliers, Expenses, Customers
+      await tx.$executeRawUnsafe(
+        `TRUNCATE TABLE "OrderReturn", "OrderItem", "Order", "StockMovement", "StockAdjustmentItem", "StockAdjustment", "PurchaseItem", "Purchase", "Supplier", "Expense", "Customer" CASCADE;`
+      );
+
+      if (resetScope === 'FULL_WIPE') {
+        // Full Wipe: Clear all test products, variants, brands, and categories
+        await tx.$executeRawUnsafe(
+          `TRUNCATE TABLE "ProductVariant", "Product", "Brand", "Category" CASCADE;`
+        );
+      } else {
+        // Transactions Only: Reset variant currentStock to 0 ready for real purchase entries
+        await tx.$executeRawUnsafe(`UPDATE "ProductVariant" SET "currentStock" = 0;`);
+      }
+
+      // Reset next invoice counter in StoreSettings
+      await tx.$executeRawUnsafe(
+        `UPDATE "StoreSettings" SET "nextInvoiceNum" = ${nextInvoiceNum};`
+      );
+    });
+
+    return res.json({
+      message:
+        resetScope === 'FULL_WIPE'
+          ? 'Store factory reset complete! All test products and orders cleared. Ready for live catalog import.'
+          : 'Transactions wiped successfully! Test orders cleared and inventory reset. Products preserved.',
+      resetScope,
+      nextInvoiceNum,
+    });
+  } catch (error: any) {
+    console.error('resetDatabase error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to reset database' });
+  }
+};
+
