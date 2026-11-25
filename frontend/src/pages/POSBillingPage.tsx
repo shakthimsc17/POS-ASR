@@ -38,6 +38,7 @@ export const POSBillingPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI' | 'SPLIT'>('CASH');
   const [cashPaid, setCashPaid] = useState<string>('');
   const [digitalPaid, setDigitalPaid] = useState<string>('');
+  const [cashTendered, setCashTendered] = useState<string>('');
 
   // Exchange State
   const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
@@ -249,6 +250,10 @@ export const POSBillingPage: React.FC = () => {
   const genuineDiscounts = (totalMrp - subtotal) + totalItemDiscounts + billDiscount;
   const totalSavings = Math.max(0, genuineDiscounts);
 
+  // Change calculation when cash tendered is entered
+  const numTendered = parseFloat(cashTendered);
+  const changeAmount = !isNaN(numTendered) ? numTendered - netPayable : 0;
+
   // Complete Checkout Sale
   const handleCheckout = async () => {
     if (cart.length === 0) {
@@ -272,7 +277,12 @@ export const POSBillingPage: React.FC = () => {
         })),
         billDiscount,
         paymentMethod,
-        cashPaid: paymentMethod === 'SPLIT' ? Number(cashPaid) || 0 : undefined,
+        cashPaid:
+          paymentMethod === 'SPLIT'
+            ? Number(cashPaid) || 0
+            : paymentMethod === 'CASH' && cashTendered && !isNaN(numTendered)
+            ? numTendered
+            : undefined,
         digitalPaid: paymentMethod === 'SPLIT' ? Number(digitalPaid) || 0 : undefined,
         exchangeItems: exchangeItems.map((ex) => ({
           productVariantId: ex.variantId,
@@ -296,6 +306,7 @@ export const POSBillingPage: React.FC = () => {
       setCustomerName('');
       setCashPaid('');
       setDigitalPaid('');
+      setCashTendered('');
       barcodeInputRef.current?.focus();
     } catch (err: any) {
       setErrorNotice(err.response?.data?.error || 'Failed to complete sale');
@@ -695,6 +706,106 @@ export const POSBillingPage: React.FC = () => {
               );
             })}
           </div>
+
+          {/* Cash Tendered & Change Return Box */}
+          {paymentMethod === 'CASH' && netPayable > 0 && (
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px]">
+                  <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                  Cash Received from Customer (Optional):
+                </span>
+                {cashTendered && (
+                  <button
+                    type="button"
+                    onClick={() => setCashTendered('')}
+                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600 underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-2.5 top-2 text-slate-400 font-bold text-xs">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={cashTendered}
+                    onChange={(e) => setCashTendered(e.target.value)}
+                    placeholder={`e.g. ${netPayable.toFixed(0)} (or 500, 1000)`}
+                    className="w-full pl-6 pr-3 py-1.5 bg-white border border-slate-300 focus:ring-2 focus:ring-emerald-500 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400"
+                  />
+                </div>
+
+                {/* Quick Note Buttons */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCashTendered(String(netPayable))}
+                    className="px-2 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-[10px] font-bold transition-all shadow-xs"
+                    title="Exact Net Amount"
+                  >
+                    Exact
+                  </button>
+                  {netPayable <= 500 && (
+                    <button
+                      type="button"
+                      onClick={() => setCashTendered('500')}
+                      className="px-2 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold transition-all shadow-xs"
+                    >
+                      ₹500
+                    </button>
+                  )}
+                  {netPayable <= 1000 && (
+                    <button
+                      type="button"
+                      onClick={() => setCashTendered('1000')}
+                      className="px-2 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold transition-all shadow-xs"
+                    >
+                      ₹1000
+                    </button>
+                  )}
+                  {netPayable <= 2000 && (
+                    <button
+                      type="button"
+                      onClick={() => setCashTendered('2000')}
+                      className="px-2 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold transition-all shadow-xs"
+                    >
+                      ₹2000
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Return Balance / Change Display */}
+              {cashTendered && !isNaN(numTendered) && (
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                  {changeAmount >= 0 ? (
+                    <>
+                      <span className="font-bold text-slate-800 flex items-center gap-1">
+                        <span>Change to Return to Customer:</span>
+                      </span>
+                      <span className="font-black text-sm text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-lg border border-emerald-300 animate-in fade-in">
+                        ₹{changeAmount.toFixed(2)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold text-amber-800">
+                        Shortage (Remaining to Collect):
+                      </span>
+                      <span className="font-black text-xs text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                        ₹{Math.abs(changeAmount).toFixed(2)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Split Pay Inputs */}
           {paymentMethod === 'SPLIT' && (
