@@ -24,6 +24,7 @@ export const DashboardPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const [summary, setSummary] = useState<any>(null);
   const [bestSellers, setBestSellers] = useState<any[]>([]);
+  const [adminTimeRange, setAdminTimeRange] = useState<'TODAY' | 'ALL_TIME'>('TODAY');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -121,11 +122,33 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <h3 className="text-2xl font-black text-slate-900">
-              {(summary?.totalStockUnits || 0).toLocaleString('en-IN')} <span className="text-sm font-semibold text-slate-500">units</span>
+              {(summary?.totalStockUnits || 0).toLocaleString('en-IN')}{' '}
+              <span className="text-sm font-semibold text-slate-500">units</span>
             </h3>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Retail Value: ₹{(summary?.stockValuationRetail || 0).toLocaleString('en-IN')}
-            </p>
+            <div className="mt-1 space-y-0.5 text-xs">
+              <p className="text-slate-600 font-medium">
+                Retail Value:{' '}
+                <strong className="text-slate-900 font-bold">
+                  ₹{(summary?.stockValuationRetail || 0).toLocaleString('en-IN')}
+                </strong>
+              </p>
+              {isAdmin && summary?.stockValuationCost !== undefined && (
+                <>
+                  <p className="text-slate-600 font-medium">
+                    Wholesale Cost:{' '}
+                    <strong className="text-indigo-700 font-bold">
+                      ₹{summary.stockValuationCost.toLocaleString('en-IN')}
+                    </strong>
+                  </p>
+                  <p className="text-emerald-700 font-semibold text-[11px]">
+                    Projected Profit:{' '}
+                    <strong>
+                      ₹{Math.max(0, summary.stockValuationRetail - summary.stockValuationCost).toLocaleString('en-IN')}
+                    </strong>
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -145,6 +168,137 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Admin Performance & Margin Snapshot */}
+      {isAdmin && (
+        <div className="p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl shadow-xl space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-black uppercase tracking-wider">
+                  Admin Exclusive
+                </span>
+                <h3 className="text-lg font-black tracking-tight text-white">
+                  Merchandise Sales & Profit Snapshot
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Accurate retail turnover, wholesale cost (COGS), and net trading profit
+              </p>
+            </div>
+
+            <div className="flex bg-white/10 p-1 rounded-xl border border-white/10 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setAdminTimeRange('TODAY')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  adminTimeRange === 'TODAY'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdminTimeRange('ALL_TIME')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  adminTimeRange === 'ALL_TIME'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                All-Time Total
+              </button>
+            </div>
+          </div>
+
+          {/* Metrics Grid */}
+          {(() => {
+            const isToday = adminTimeRange === 'TODAY';
+            const soldQty = isToday
+              ? summary?.todaySoldQty || 0
+              : summary?.allTimeMetrics?.totalSoldQty || 0;
+            const revenue = isToday
+              ? summary?.todaySales || 0
+              : summary?.allTimeMetrics?.totalRevenue || 0;
+            const cogs = isToday
+              ? summary?.todayCogs || 0
+              : summary?.allTimeMetrics?.totalCogs || 0;
+            const profit = isToday
+              ? summary?.todayGrossProfit || 0
+              : summary?.allTimeMetrics?.totalGrossProfit || 0;
+            const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : '0.0';
+            const returnedQty = isToday
+              ? summary?.todayReturnedQty || 0
+              : summary?.allTimeMetrics?.returnedQty || 0;
+            const billsCount = isToday
+              ? summary?.todayOrdersCount || 0
+              : summary?.allTimeMetrics?.totalOrdersCount || 0;
+
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {/* 1. Sold Quantity */}
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Garments Sold
+                  </span>
+                  <p className="text-2xl font-black text-white">
+                    {soldQty} <span className="text-xs font-semibold text-slate-400">pcs</span>
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    {returnedQty > 0 ? `(${returnedQty} returned in exchange)` : `Across ${billsCount} bills`}
+                  </p>
+                </div>
+
+                {/* 2. Retail Revenue */}
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Retail Sales Turnover
+                  </span>
+                  <p className="text-2xl font-black text-white">
+                    ₹{revenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Net cash & digital sales</p>
+                </div>
+
+                {/* 3. Wholesale Cost Basis (COGS) */}
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                    Wholesale Cost (COGS)
+                  </span>
+                  <p className="text-2xl font-black text-amber-300">
+                    ₹{cogs.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[11px] text-slate-400">Cost of delivered items</p>
+                </div>
+
+                {/* 4. Net Gross Trading Profit */}
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                    Net Gross Profit
+                  </span>
+                  <p className="text-2xl font-black text-emerald-400">
+                    ₹{profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[11px] text-emerald-300 font-semibold">Margin: {margin}%</p>
+                </div>
+
+                {/* 5. Average Basket Value */}
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Average Bill Value
+                  </span>
+                  <p className="text-2xl font-black text-white">
+                    ₹{billsCount > 0 ? (revenue / billsCount).toFixed(2) : '0.00'}
+                  </p>
+                  <p className="text-[11px] text-slate-400">{billsCount} completed transactions</p>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Sales Trend Chart & Best Sellers */}
       <div className="grid grid-cols-12 gap-6">

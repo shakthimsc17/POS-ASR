@@ -244,7 +244,10 @@ export const POSBillingPage: React.FC = () => {
     : 0;
   const totalExchangeCredit = exchangeItems.reduce((sum, item) => sum + item.creditAmount, 0);
   const netPayable = Math.max(0, subtotal - totalItemDiscounts - billDiscount + totalGst - totalExchangeCredit);
-  const totalSavings = Math.max(0, totalMrp - netPayable);
+  
+  // Real customer savings from genuine MRP difference and explicit discounts (ignoring exchange credit tender)
+  const genuineDiscounts = (totalMrp - subtotal) + totalItemDiscounts + billDiscount;
+  const totalSavings = Math.max(0, genuineDiscounts);
 
   // Complete Checkout Sale
   const handleCheckout = async () => {

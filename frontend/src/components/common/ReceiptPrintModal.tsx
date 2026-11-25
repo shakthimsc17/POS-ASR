@@ -38,7 +38,10 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
     (sum, item) => sum + (Number(item.mrpSnapshot) || Number(item.unitPrice)) * item.quantity,
     0
   );
-  const totalCustomerSavings = Math.max(0, totalMrpValue - Number(order.netAmount));
+  const totalSellingValue = Number(order.subtotal || 0);
+  const totalExplicitDiscounts = Number(order.itemDiscount || 0) + Number(order.billDiscount || 0);
+  const genuineSavings = (totalMrpValue - totalSellingValue) + totalExplicitDiscounts;
+  const totalCustomerSavings = Math.max(0, genuineSavings);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
