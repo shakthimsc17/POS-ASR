@@ -18,6 +18,7 @@ export const checkoutCart = async (req: AuthenticatedRequest, res: Response) => 
       paymentMethod = 'CASH',
       cashPaid,
       digitalPaid,
+      exchangeItems, // Optional: Array of { productVariantId, quantity, creditAmount, reason }
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -119,8 +120,58 @@ export const checkoutCart = async (req: AuthenticatedRequest, res: Response) => 
         });
       }
 
+      // 3b. Process returned/exchanged garments (if any)
+      let totalExchangeCredit = 0;
+      const orderReturnData: any[] = [];
+
+      if (exchangeItems && Array.isArray(exchangeItems) && exchangeItems.length > 0) {
+        for (const exItem of exchangeItems) {
+          const exQty = Math.max(1, Number(exItem.quantity) || 1);
+          const exCredit = Math.max(0, Number(exItem.creditAmount) || 0);
+          totalExchangeCredit += exCredit;
+
+          const variantId = exItem.productVariantId || exItem.variantId;
+          let variantDesc = 'Exchanged Item';
+          if (variantId) {
+            const exVariant = await tx.productVariant.findUnique({
+              where: { id: variantId },
+              include: { product: true },
+            });
+
+            if (exVariant) {
+              variantDesc = `${exVariant.product.name} (${exVariant.size}/${exVariant.color})`;
+
+              // Increment stock of returned garment
+              const updatedExVariant = await tx.productVariant.update({
+                where: { id: exVariant.id },
+                data: { currentStock: { increment: exQty } },
+              });
+
+              // Log stock movement for inventory integrity
+              await tx.stockMovement.create({
+                data: {
+                  productVariantId: exVariant.id,
+                  type: 'SALE_RETURN',
+                  quantity: exQty,
+                  referenceId: invoiceNumber,
+                  balanceAfter: updatedExVariant.currentStock,
+                  notes: `POS Exchange in Invoice: ${invoiceNumber}. Restocked: ${variantDesc}`,
+                },
+              });
+            }
+          }
+
+          orderReturnData.push({
+            refundAmount: exCredit,
+            reason: exItem.reason?.trim() || `Exchange: ${variantDesc}`,
+            processedById: userId,
+          });
+        }
+      }
+
       const totalBillDiscount = Number(billDiscount || 0);
-      const netAmount = subtotal - totalItemDiscount - totalBillDiscount + totalTaxAmount;
+      const grossAfterDiscounts = subtotal - totalItemDiscount - totalBillDiscount + totalTaxAmount;
+      const netAmount = Math.max(0, grossAfterDiscounts - totalExchangeCredit);
 
       // 4. Create Order
       const order = await tx.order.create({
@@ -137,9 +188,17 @@ export const checkoutCart = async (req: AuthenticatedRequest, res: Response) => 
           cashPaid: cashPaid !== undefined ? Number(cashPaid) : null,
           digitalPaid: digitalPaid !== undefined ? Number(digitalPaid) : null,
           status: 'COMPLETED',
+          cancellationReason: totalExchangeCredit > 0 ? `Exchange Credit Applied: ₹${totalExchangeCredit.toFixed(2)}` : null,
           items: {
             create: orderItemData,
           },
+          ...(orderReturnData.length > 0
+            ? {
+                returns: {
+                  create: orderReturnData,
+                },
+              }
+            : {}),
         },
         include: {
           items: {
@@ -149,6 +208,7 @@ export const checkoutCart = async (req: AuthenticatedRequest, res: Response) => 
               },
             },
           },
+          returns: true,
           customer: true,
           user: { select: { id: true, employeeName: true } },
         },
@@ -220,6 +280,7 @@ export const listOrders = async (req: AuthenticatedRequest, res: Response) => {
         include: {
           customer: { select: { id: true, name: true, phone: true } },
           user: { select: { id: true, employeeName: true } },
+          returns: { select: { id: true, refundAmount: true, reason: true } },
           _count: { select: { items: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -269,6 +330,44 @@ export const getOrderById = async (req: AuthenticatedRequest, res: Response) => 
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    // Query any SALE_RETURN movements associated with this invoice (Garment Exchanges / Returns)
+    const exchangeMovements = await prisma.stockMovement.findMany({
+      where: {
+        referenceId: order.invoiceNumber,
+        type: 'SALE_RETURN',
+      },
+      include: {
+        variant: {
+          include: {
+            product: { select: { id: true, name: true, itemCode: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let restockedCost = 0;
+    const exchangeDetails = exchangeMovements.map((sm) => {
+      const unitCost = Number(sm.variant.costPrice || 0);
+      const unitSelling = Number(sm.variant.sellingPrice || 0);
+      const costTotal = unitCost * sm.quantity;
+      restockedCost += costTotal;
+      return {
+        id: sm.id,
+        variantId: sm.productVariantId,
+        productName: sm.variant.product.name,
+        itemCode: sm.variant.product.itemCode,
+        size: sm.variant.size,
+        color: sm.variant.color,
+        barcode: sm.variant.barcode,
+        quantity: sm.quantity,
+        unitCost: isAdmin ? unitCost : undefined,
+        unitSelling,
+        notes: sm.notes,
+        createdAt: sm.createdAt,
+      };
+    });
+
     // Calculate profit for admin
     let totalCogs = 0;
     const formattedItems = order.items.map((item) => {
@@ -283,14 +382,34 @@ export const getOrderById = async (req: AuthenticatedRequest, res: Response) => 
       };
     });
 
-    const grossProfit = Number(order.netAmount) - totalCogs;
+    // Total exchange credit applied to reduce cash payable
+    let totalExchangeCredit = 0;
+    if (order.returns && order.returns.length > 0) {
+      totalExchangeCredit = order.returns.reduce((sum, r) => sum + Number(r.refundAmount), 0);
+    }
+
+    // Revenue and profit breakdown:
+    // 1. Sold Items Revenue & Margin on sold merchandise
+    const soldItemsRevenue = Number(order.subtotal) - Number(order.itemDiscount) - Number(order.billDiscount);
+    const soldItemsProfit = soldItemsRevenue - totalCogs;
+
+    // 2. Net Cash vs Net Inventory Cost impact:
+    // Cash received = order.netAmount
+    // Net Wholesale Cost out = totalCogs (new item) - restockedCost (returned item back in inventory)
+    const netCogsChange = totalCogs - restockedCost;
+    const netBillProfit = Number(order.netAmount) - netCogsChange;
 
     return res.json({
       order: {
         ...order,
         items: formattedItems,
+        exchangeDetails,
+        totalExchangeCredit,
+        restockedCost: isAdmin ? restockedCost : undefined,
         totalCogs: isAdmin ? totalCogs : undefined,
-        grossProfit: isAdmin ? grossProfit : undefined,
+        soldItemsProfit: isAdmin ? soldItemsProfit : undefined,
+        grossProfit: isAdmin ? soldItemsProfit : undefined,
+        netBillProfit: isAdmin ? netBillProfit : undefined,
       },
     });
   } catch (error: any) {

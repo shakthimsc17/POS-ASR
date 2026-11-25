@@ -363,8 +363,10 @@ export const searchProductsQuick = async (req: AuthenticatedRequest, res: Respon
     });
 
     const results = variants.map((v) => ({
+      id: v.id,
       variantId: v.id,
       productId: v.productId,
+      name: v.product.name,
       productName: v.product.name,
       itemCode: v.product.itemCode,
       size: v.size,

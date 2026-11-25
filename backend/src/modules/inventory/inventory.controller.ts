@@ -112,15 +112,30 @@ export const getLowStockAlerts = async (req: AuthenticatedRequest, res: Response
 
 export const listStockMovements = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { variantId, page = '1', limit = '30' } = req.query;
+    const { variantId, type, search, page = '1', limit = '50' } = req.query;
 
     const pageNum = parseInt(page as string, 10) || 1;
-    const limitNum = parseInt(limit as string, 10) || 30;
+    const limitNum = parseInt(limit as string, 10) || 50;
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
     if (variantId) {
       where.productVariantId = String(variantId);
+    }
+
+    if (type && type !== 'ALL') {
+      where.type = String(type);
+    }
+
+    if (search) {
+      const s = String(search).trim();
+      where.OR = [
+        { referenceId: { contains: s, mode: 'insensitive' } },
+        { notes: { contains: s, mode: 'insensitive' } },
+        { variant: { barcode: { contains: s, mode: 'insensitive' } } },
+        { variant: { product: { name: { contains: s, mode: 'insensitive' } } } },
+        { variant: { product: { itemCode: { contains: s, mode: 'insensitive' } } } },
+      ];
     }
 
     const [total, movements] = await Promise.all([
@@ -132,7 +147,7 @@ export const listStockMovements = async (req: AuthenticatedRequest, res: Respons
         include: {
           variant: {
             include: {
-              product: { select: { name: true, itemCode: true } },
+              product: { select: { id: true, name: true, itemCode: true } },
             },
           },
         },
@@ -140,8 +155,16 @@ export const listStockMovements = async (req: AuthenticatedRequest, res: Respons
       }),
     ]);
 
+    const formattedMovements = movements.map((m) => {
+      const previousBalance = m.balanceAfter - m.quantity;
+      return {
+        ...m,
+        previousBalance,
+      };
+    });
+
     return res.json({
-      movements,
+      movements: formattedMovements,
       pagination: {
         total,
         page: pageNum,

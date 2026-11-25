@@ -14,12 +14,14 @@ import {
   Percent,
   Layers,
   ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import api from '../services/api';
 import { CartItem, Order, StoreSettings } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { ReceiptPrintModal } from '../components/common/ReceiptPrintModal';
+import { ExchangeGarmentModal, ExchangedGarment } from '../components/common/ExchangeGarmentModal';
 
 export const POSBillingPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -36,6 +38,10 @@ export const POSBillingPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI' | 'SPLIT'>('CASH');
   const [cashPaid, setCashPaid] = useState<string>('');
   const [digitalPaid, setDigitalPaid] = useState<string>('');
+
+  // Exchange State
+  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
+  const [exchangeItems, setExchangeItems] = useState<ExchangedGarment[]>([]);
 
   // Customer State
   const [customerPhone, setCustomerPhone] = useState('');
@@ -80,12 +86,15 @@ export const POSBillingPage: React.FC = () => {
       } else if (e.key === 'F9' && cart.length > 0 && !isSubmitting) {
         e.preventDefault();
         handleCheckout();
+      } else if (e.altKey && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        setIsExchangeModalOpen(true);
       }
     };
 
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, [cart, isSubmitting]);
+  }, [cart, exchangeItems, isSubmitting]);
 
   // Hook for zero-click USB Barcode Scanner Wedge
   useBarcodeScanner({
@@ -233,7 +242,8 @@ export const POSBillingPage: React.FC = () => {
   const totalGst = storeSettings?.gstEnabled
     ? cart.reduce((sum, item) => sum + ((item.unitPrice * item.gstRate) / 100) * item.quantity, 0)
     : 0;
-  const netPayable = Math.max(0, subtotal - totalItemDiscounts - billDiscount + totalGst);
+  const totalExchangeCredit = exchangeItems.reduce((sum, item) => sum + item.creditAmount, 0);
+  const netPayable = Math.max(0, subtotal - totalItemDiscounts - billDiscount + totalGst - totalExchangeCredit);
   const totalSavings = Math.max(0, totalMrp - netPayable);
 
   // Complete Checkout Sale
@@ -261,6 +271,12 @@ export const POSBillingPage: React.FC = () => {
         paymentMethod,
         cashPaid: paymentMethod === 'SPLIT' ? Number(cashPaid) || 0 : undefined,
         digitalPaid: paymentMethod === 'SPLIT' ? Number(digitalPaid) || 0 : undefined,
+        exchangeItems: exchangeItems.map((ex) => ({
+          productVariantId: ex.variantId,
+          quantity: ex.quantity,
+          creditAmount: ex.creditAmount,
+          reason: ex.reason,
+        })),
       };
 
       const res = await api.post('/sales/checkout', payload);
@@ -271,6 +287,7 @@ export const POSBillingPage: React.FC = () => {
 
       // Reset cart and fields
       setCart([]);
+      setExchangeItems([]);
       setBillDiscount(0);
       setCustomerPhone('');
       setCustomerName('');
@@ -428,22 +445,39 @@ export const POSBillingPage: React.FC = () => {
 
       {/* RIGHT SECTION: Cart, Billing Summary & Checkout (45% width) */}
       <div className="w-5/12 flex flex-col h-full bg-white shadow-xl z-10">
-        {/* Customer Phone Bar */}
-        <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
-          <input
-            type="tel"
-            placeholder="Customer Phone (e.g. 9876543210)"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-emerald-500"
-          />
-          <input
-            type="text"
-            placeholder="Customer Name (Optional)"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-emerald-500"
-          />
+        {/* Customer Phone Bar & Exchange Shortcut */}
+        <div className="p-3 bg-slate-50 border-b border-slate-200 space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="tel"
+              placeholder="Customer Phone (e.g. 9876543210)"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-emerald-500"
+            />
+            <input
+              type="text"
+              placeholder="Customer Name (Optional)"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-1 border-t border-slate-200/70">
+            <span className="text-[11px] font-bold text-slate-500">
+              Active Cart ({cart.reduce((s, i) => s + i.quantity, 0)} pcs)
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsExchangeModalOpen(true)}
+              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              title="Shortcut: Alt+E"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+              <span>Exchange Garment (Deduct Old Bill)</span>
+            </button>
+          </div>
         </div>
 
         {/* Cart Item Table Header */}
@@ -519,6 +553,44 @@ export const POSBillingPage: React.FC = () => {
               </div>
             ))
           )}
+
+          {/* Exchanged Garments Deductions in Cart */}
+          {exchangeItems.map((ex, idx) => (
+            <div
+              key={`ex-${idx}`}
+              className="my-2 p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl flex items-center justify-between text-xs animate-in fade-in"
+            >
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-amber-200 text-amber-900 rounded-lg shrink-0">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 bg-amber-200 text-amber-950 rounded text-[9px] font-black uppercase tracking-wider">
+                      EXCHANGE CREDIT
+                    </span>
+                    <span className="font-bold text-slate-900">{ex.productName}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Size: {ex.size} • Color: {ex.color} • Return Qty: {ex.quantity} pc (+{ex.quantity} stock)
+                  </p>
+                  {ex.reason && <p className="text-[10px] text-amber-800 italic">{ex.reason}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm text-amber-900">-₹{ex.creditAmount.toFixed(2)}</span>
+                <button
+                  type="button"
+                  onClick={() => setExchangeItems((prev) => prev.filter((_, i) => i !== idx))}
+                  className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                  title="Remove exchange item"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* BOTTOM BILLING SUMMARY & CHECKOUT */}
@@ -569,10 +641,23 @@ export const POSBillingPage: React.FC = () => {
               </div>
             )}
 
+            {totalExchangeCredit > 0 && (
+              <div className="flex justify-between font-bold text-amber-800 pt-1 border-t border-amber-200">
+                <span>Less Exchanged Garment Credit:</span>
+                <span>-₹{totalExchangeCredit.toFixed(2)}</span>
+              </div>
+            )}
+
             <div className="flex justify-between items-baseline pt-2 border-t border-slate-200">
               <span className="font-bold text-sm text-slate-800">NET PAYABLE:</span>
               <span className="font-black text-2xl text-emerald-700">₹{netPayable.toFixed(2)}</span>
             </div>
+
+            {cart.length > 0 && subtotal < totalExchangeCredit && (
+              <div className="p-2 bg-amber-100 border border-amber-300 rounded-xl text-amber-900 text-[11px] font-bold">
+                ⚠️ Exchanged garment value (₹{totalExchangeCredit.toFixed(2)}) exceeds new items (₹{subtotal.toFixed(2)}). Per shop policy, please ensure customer purchases equal or higher value.
+              </div>
+            )}
 
             {totalSavings > 0 && (
               <div className="p-2 bg-emerald-100/70 border border-emerald-300 rounded-xl text-center text-xs font-bold text-emerald-900 mt-2">
@@ -658,6 +743,15 @@ export const POSBillingPage: React.FC = () => {
         onClose={() => setIsPrintModalOpen(false)}
         order={successOrder}
         settings={storeSettings}
+      />
+
+      {/* Exchange Garment Modal */}
+      <ExchangeGarmentModal
+        isOpen={isExchangeModalOpen}
+        onClose={() => setIsExchangeModalOpen(false)}
+        onApplyExchange={(newItem) => {
+          setExchangeItems((prev) => [...prev, newItem]);
+        }}
       />
     </div>
   );

@@ -253,17 +253,25 @@ export const OrdersPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          o.status === 'COMPLETED'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : o.status === 'CANCELLED'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {o.status}
-                      </span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            o.status === 'COMPLETED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : o.status === 'CANCELLED'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {o.status}
+                        </span>
+                        {((o.returns && o.returns.length > 0) || o.cancellationReason?.includes('Exchange Credit')) && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-0.5">
+                            <RotateCcw className="w-2.5 h-2.5" />
+                            Exchange
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-right font-black text-slate-900 text-sm">
                       ₹{Number(o.netAmount).toFixed(2)}
@@ -330,53 +338,151 @@ export const OrdersPage: React.FC = () => {
             </div>
 
             <div className="p-6 overflow-y-auto space-y-4 text-xs">
-              {/* Items List */}
-              <table className="w-full text-left">
-                <thead className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
-                  <tr>
-                    <th className="pb-2">Garment Description</th>
-                    <th className="pb-2 text-center">Qty</th>
-                    <th className="pb-2 text-right">Selling Price</th>
-                    {isAdmin && <th className="pb-2 text-right">Cost Snapshot</th>}
-                    <th className="pb-2 text-right">Net</th>
-                    {isAdmin && <th className="pb-2 text-right">Gross Profit</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {selectedOrder.items.map((it: any) => (
-                    <tr key={it.id}>
-                      <td className="py-2">
-                        <div className="font-bold text-slate-900">{it.variant.product.name}</div>
-                        <div className="text-[10px] text-slate-500">{it.variant.size} / {it.variant.color}</div>
-                      </td>
-                      <td className="py-2 text-center font-bold">{it.quantity}</td>
-                      <td className="py-2 text-right">₹{Number(it.unitPrice).toFixed(2)}</td>
-                      {isAdmin && <td className="py-2 text-right text-slate-500">₹{it.costPriceSnapshot}</td>}
-                      <td className="py-2 text-right font-bold text-slate-900">₹{Number(it.netAmount).toFixed(2)}</td>
-                      {isAdmin && <td className="py-2 text-right font-bold text-emerald-600">₹{it.itemProfit?.toFixed(2)}</td>}
+              {/* Items Purchased List */}
+              <div>
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Garments Sold in this Invoice
+                </div>
+                <table className="w-full text-left">
+                  <thead className="border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="pb-2">Garment Description</th>
+                      <th className="pb-2 text-center">Qty</th>
+                      <th className="pb-2 text-right">Selling Price</th>
+                      {isAdmin && <th className="pb-2 text-right">Cost Snapshot</th>}
+                      <th className="pb-2 text-right">Net</th>
+                      {isAdmin && <th className="pb-2 text-right">Gross Profit</th>}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {selectedOrder.items.map((it: any) => (
+                      <tr key={it.id}>
+                        <td className="py-2">
+                          <div className="font-bold text-slate-900">{it.variant.product.name}</div>
+                          <div className="text-[10px] text-slate-500">{it.variant.size} / {it.variant.color}</div>
+                        </td>
+                        <td className="py-2 text-center font-bold">{it.quantity}</td>
+                        <td className="py-2 text-right">₹{Number(it.unitPrice).toFixed(2)}</td>
+                        {isAdmin && <td className="py-2 text-right text-slate-500">₹{it.costPriceSnapshot}</td>}
+                        <td className="py-2 text-right font-bold text-slate-900">₹{Number(it.netAmount).toFixed(2)}</td>
+                        {isAdmin && <td className="py-2 text-right font-bold text-emerald-600">₹{it.itemProfit?.toFixed(2)}</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Exchanged / Returned Garments Section */}
+              {((selectedOrder.exchangeDetails && selectedOrder.exchangeDetails.length > 0) ||
+                (selectedOrder.returns && selectedOrder.returns.length > 0)) && (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                      Exchanged Garments (Restocked to Inventory)
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                      Stock Restocked (+1)
+                    </span>
+                  </div>
+                  <table className="w-full text-left">
+                    <thead className="border-b border-amber-200 text-amber-900/70 font-bold uppercase text-[9px]">
+                      <tr>
+                        <th className="pb-1">Returned Garment</th>
+                        <th className="pb-1 text-center">Qty</th>
+                        <th className="pb-1 text-right">Selling Price</th>
+                        {isAdmin && <th className="pb-1 text-right">Restocked Cost</th>}
+                        <th className="pb-1 text-right">Exchange Credit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {selectedOrder.exchangeDetails && selectedOrder.exchangeDetails.length > 0 ? (
+                        selectedOrder.exchangeDetails.map((ex: any) => (
+                          <tr key={ex.id}>
+                            <td className="py-1.5">
+                              <div className="font-bold text-slate-900">{ex.productName}</div>
+                              <div className="text-[10px] text-slate-500">
+                                Size: {ex.size} / Color: {ex.color} • Barcode: {ex.barcode || 'N/A'}
+                              </div>
+                            </td>
+                            <td className="py-1.5 text-center font-bold text-emerald-700">+{ex.quantity}</td>
+                            <td className="py-1.5 text-right font-medium">₹{Number(ex.unitSelling).toFixed(2)}</td>
+                            {isAdmin && (
+                              <td className="py-1.5 text-right font-medium text-slate-600">
+                                ₹{Number(ex.unitCost || 0).toFixed(2)}
+                              </td>
+                            )}
+                            <td className="py-1.5 text-right font-bold text-amber-900">
+                              -₹{(Number(ex.unitSelling) * ex.quantity).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        selectedOrder.returns?.map((ret: any, rIdx: number) => (
+                          <tr key={ret.id || rIdx}>
+                            <td className="py-1.5">
+                              <div className="font-bold text-slate-900">{ret.reason || 'Customer Exchange'}</div>
+                            </td>
+                            <td className="py-1.5 text-center font-bold text-emerald-700">+1</td>
+                            <td className="py-1.5 text-right font-medium">-</td>
+                            {isAdmin && <td className="py-1.5 text-right font-medium text-slate-600">-</td>}
+                            <td className="py-1.5 text-right font-bold text-amber-900">
+                              -₹{Number(ret.refundAmount).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Order Total & Admin Profit Box */}
               <div className="p-4 bg-slate-50 rounded-2xl space-y-2 border border-slate-200">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
+                  <span>Subtotal (Garments Purchased):</span>
                   <span>₹{Number(selectedOrder.subtotal).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Discount:</span>
-                  <span>-₹{(Number(selectedOrder.itemDiscount) + Number(selectedOrder.billDiscount)).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-sm text-slate-900 pt-1 border-t border-slate-200">
-                  <span>Net Payable:</span>
+                {(Number(selectedOrder.itemDiscount) > 0 || Number(selectedOrder.billDiscount) > 0) && (
+                  <div className="flex justify-between">
+                    <span>Discount:</span>
+                    <span>-₹{(Number(selectedOrder.itemDiscount) + Number(selectedOrder.billDiscount)).toFixed(2)}</span>
+                  </div>
+                )}
+                {Number(selectedOrder.totalExchangeCredit || 0) > 0 && (
+                  <div className="flex justify-between font-bold text-amber-800">
+                    <span className="flex items-center gap-1">
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                      Less Exchange Credit (Tendered):
+                    </span>
+                    <span>-₹{Number(selectedOrder.totalExchangeCredit).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-sm text-slate-900 pt-1.5 border-t border-slate-200">
+                  <span>Net Cash Payable / Collected:</span>
                   <span>₹{Number(selectedOrder.netAmount).toFixed(2)}</span>
                 </div>
+
                 {isAdmin && (
-                  <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t border-emerald-200">
-                    <span>Gross Profit from this Bill:</span>
-                    <span>₹{selectedOrder.grossProfit?.toFixed(2)}</span>
+                  <div className="pt-2 border-t border-slate-200 space-y-1.5 text-[11px]">
+                    <div className="flex justify-between font-bold text-emerald-700">
+                      <span>Profit on Purchased Items:</span>
+                      <span>₹{(selectedOrder.soldItemsProfit ?? selectedOrder.grossProfit)?.toFixed(2)}</span>
+                    </div>
+                    {Number(selectedOrder.restockedCost || 0) > 0 && (
+                      <div className="flex justify-between text-slate-600 font-medium">
+                        <span>+ Restocked Garment Inventory Value:</span>
+                        <span className="text-emerald-700 font-bold">+₹{Number(selectedOrder.restockedCost).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {Number(selectedOrder.totalExchangeCredit || 0) > 0 && selectedOrder.netBillProfit !== undefined && (
+                      <div className="flex justify-between text-slate-800 font-bold pt-1 border-t border-slate-200">
+                        <span>Net Cash vs Wholesale Cost Difference:</span>
+                        <span className={selectedOrder.netBillProfit >= 0 ? 'text-emerald-700' : 'text-slate-700'}>
+                          {selectedOrder.netBillProfit >= 0 ? '+' : ''}₹{selectedOrder.netBillProfit.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

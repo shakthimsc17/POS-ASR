@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Truck, Plus, Trash2, Calendar, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Truck, Plus, Trash2, Calendar, FileText, CheckCircle2, AlertCircle, X, Users, Phone, MapPin, Building2 } from 'lucide-react';
 import api from '../services/api';
 import { Purchase, Supplier, Product } from '../types';
+import { QuickSupplierModal } from '../components/common/QuickSupplierModal';
 
 export const PurchasesPage: React.FC = () => {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'purchases' | 'suppliers'>('purchases');
+
+  // Supplier Modal State
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
 
   // New Purchase Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -128,69 +133,157 @@ export const PurchasesPage: React.FC = () => {
       {/* Header */}
       <div className="px-8 py-5 bg-white border-b border-slate-200 flex items-center justify-between shadow-sm">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Purchase Inward Entry</h2>
+          <h2 className="text-xl font-bold text-slate-900">Purchase Inward & Suppliers</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Record supplier bills and automatically increment garment inventory
+            Record supplier bills, manage vendor accounts, and increment garment inventory
           </p>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Record New Purchase
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              onClick={() => setActiveTab('purchases')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'purchases'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Inward Invoices ({purchases.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('suppliers')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'suppliers'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Suppliers Directory ({suppliers.length})
+            </button>
+          </div>
+
+          <button
+            onClick={() => setIsSupplierModalOpen(true)}
+            className="px-3.5 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4 text-emerald-600" />
+            + Add Supplier
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Record New Purchase
+          </button>
+        </div>
       </div>
 
-      {/* History Table */}
+      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Supplier Invoice #</th>
-                <th className="py-3 px-4">Supplier Name</th>
-                <th className="py-3 px-4">Received By</th>
-                <th className="py-3 px-4 text-center">Items Received</th>
-                <th className="py-3 px-4 text-right">Total Bill (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-              {purchases.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    No purchase inward entries recorded yet.
-                  </td>
+        {activeTab === 'purchases' ? (
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Supplier Invoice #</th>
+                  <th className="py-3 px-4">Supplier Name</th>
+                  <th className="py-3 px-4">Received By</th>
+                  <th className="py-3 px-4 text-center">Items Received</th>
+                  <th className="py-3 px-4 text-right">Total Bill (₹)</th>
                 </tr>
-              ) : (
-                purchases.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80">
-                    <td className="py-3 px-4 text-slate-500">
-                      {new Date(p.purchaseDate).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="py-3 px-4 font-mono font-bold text-slate-900">{p.purchaseInvoice}</td>
-                    <td className="py-3 px-4 font-bold text-slate-800">{p.supplier.name}</td>
-                    <td className="py-3 px-4 text-slate-600">{p.receivedBy.employeeName}</td>
-                    <td className="py-3 px-4 text-center font-bold">
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded-full text-[11px]">
-                        {p.items.reduce((sum, item) => sum + item.quantity, 0)} units ({p.items.length} SKUs)
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-extrabold text-slate-900">
-                      ₹{Number(p.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                {purchases.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                      No purchase inward entries recorded yet. Click "Record New Purchase" to add your first bill.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  purchases.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/80">
+                      <td className="py-3 px-4 text-slate-500">
+                        {new Date(p.purchaseDate).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900">{p.purchaseInvoice}</td>
+                      <td className="py-3 px-4 font-bold text-slate-800">{p.supplier.name}</td>
+                      <td className="py-3 px-4 text-slate-600">{p.receivedBy.employeeName}</td>
+                      <td className="py-3 px-4 text-center font-bold">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded-full text-[11px]">
+                          {p.items.reduce((sum, item) => sum + item.quantity, 0)} units ({p.items.length} SKUs)
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-extrabold text-slate-900">
+                        ₹{Number(p.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          /* Suppliers Directory View */
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-slate-700 text-xs font-bold">
+                <Truck className="w-4 h-4 text-emerald-600" />
+                <span>Registered Garment & Fabric Suppliers ({suppliers.length})</span>
+              </div>
+              <button
+                onClick={() => setIsSupplierModalOpen(true)}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add New Supplier
+              </button>
+            </div>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3 px-4">Supplier / Vendor Name</th>
+                  <th className="py-3 px-4">Contact Person</th>
+                  <th className="py-3 px-4">Phone Number</th>
+                  <th className="py-3 px-4">GSTIN</th>
+                  <th className="py-3 px-4">Address / City</th>
+                  <th className="py-3 px-4 text-center">Total Inward Bills</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                {suppliers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                      No suppliers registered yet. Click "Add New Supplier" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  suppliers.map((s) => (
+                    <tr key={s.id} className="hover:bg-slate-50/80">
+                      <td className="py-3 px-4 font-bold text-slate-900">{s.name}</td>
+                      <td className="py-3 px-4 text-slate-600">{s.contactPerson || '—'}</td>
+                      <td className="py-3 px-4 font-mono font-medium text-slate-700">{s.phone}</td>
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-600">{s.gstin || '—'}</td>
+                      <td className="py-3 px-4 text-slate-500">{s.address || '—'}</td>
+                      <td className="py-3 px-4 text-center font-bold">
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-full text-[11px]">
+                          {s._count?.purchases || 0} bills
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* New Purchase Entry Modal */}
@@ -211,7 +304,16 @@ export const PurchasesPage: React.FC = () => {
               {/* Header Details */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Supplier *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">Supplier *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsSupplierModalOpen(true)}
+                      className="text-emerald-700 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add
+                    </button>
+                  </div>
                   <select
                     required
                     value={supplierId}
@@ -220,7 +322,7 @@ export const PurchasesPage: React.FC = () => {
                   >
                     <option value="">Select Supplier</option>
                     {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>
                     ))}
                   </select>
                 </div>
@@ -387,6 +489,18 @@ export const PurchasesPage: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Quick Supplier Modal */}
+      <QuickSupplierModal
+        isOpen={isSupplierModalOpen}
+        onClose={() => setIsSupplierModalOpen(false)}
+        onSupplierCreated={(newSup) => {
+          setSuppliers((prev) => {
+            const exists = prev.some((s) => s.id === newSup.id);
+            return exists ? prev : [...prev, newSup];
+          });
+          setSupplierId(newSup.id);
+        }}
+      />
     </div>
   );
 };

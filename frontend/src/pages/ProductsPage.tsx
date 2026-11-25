@@ -14,11 +14,16 @@ import {
   Layers,
   Edit3,
   Trash2,
+  FolderPlus,
+  History,
 } from 'lucide-react';
 import api from '../services/api';
 import { Product, ProductVariant, Category, Brand, StoreSettings } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { BarcodeTagPrintModal } from '../components/common/BarcodeTagPrintModal';
+import { QuickCategoryModal } from '../components/common/QuickCategoryModal';
+import { QuickBrandModal } from '../components/common/QuickBrandModal';
+import { VariantStockHistoryModal } from '../components/common/VariantStockHistoryModal';
 
 export const ProductsPage: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -27,6 +32,13 @@ export const ProductsPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
+
+  // Category & Brand Creation Modals
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
+
+  // Variant Stock Audit History
+  const [selectedHistoryVariant, setSelectedHistoryVariant] = useState<any | null>(null);
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -238,16 +250,32 @@ export const ProductsPage: React.FC = () => {
         </div>
 
         {isAdmin && (
-          <button
-            onClick={() => {
-              setIsModalOpen(true);
-              if (matrixVariants.length === 0) handleGenerateMatrix();
-            }}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Add New Garment Master
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+            >
+              <FolderPlus className="w-4 h-4 text-emerald-600" />
+              + Add Category
+            </button>
+            <button
+              onClick={() => setIsBrandModalOpen(true)}
+              className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+            >
+              <Tag className="w-4 h-4 text-emerald-600" />
+              + Add Brand
+            </button>
+            <button
+              onClick={() => {
+                setIsModalOpen(true);
+                if (matrixVariants.length === 0) handleGenerateMatrix();
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Add New Garment Master
+            </button>
+          </div>
         )}
       </div>
 
@@ -409,19 +437,40 @@ export const ProductsPage: React.FC = () => {
                                         </td>
                                       )}
                                       <td className="py-2 text-right">
-                                        <button
-                                          onClick={() =>
-                                            setPrintingVariant({
-                                              ...v,
-                                              productName: product.name,
-                                              itemCode: product.itemCode,
-                                            })
-                                          }
-                                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold inline-flex items-center gap-1.5 transition-colors"
-                                        >
-                                          <Printer className="w-3.5 h-3.5 text-slate-600" />
-                                          Print Tag
-                                        </button>
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedHistoryVariant({
+                                                id: v.id,
+                                                productName: product.name,
+                                                itemCode: product.itemCode,
+                                                size: v.size,
+                                                color: v.color,
+                                                barcode: v.barcode,
+                                                currentStock: v.currentStock,
+                                              });
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200"
+                                            title="Inspect stock audit ledger"
+                                          >
+                                            <History className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              setPrintingVariant({
+                                                ...v,
+                                                productName: product.name,
+                                                itemCode: product.itemCode,
+                                              })
+                                            }
+                                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold inline-flex items-center gap-1.5 transition-colors"
+                                          >
+                                            <Printer className="w-3.5 h-3.5 text-slate-600" />
+                                            Print Tag
+                                          </button>
+                                        </div>
                                       </td>
                                     </tr>
                                   ))}
@@ -481,7 +530,16 @@ export const ProductsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Category *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">Category *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="text-emerald-700 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add
+                    </button>
+                  </div>
                   <select
                     required
                     value={newCategoryId}
@@ -496,7 +554,16 @@ export const ProductsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Brand (Optional)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">Brand (Optional)</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsBrandModalOpen(true)}
+                      className="text-emerald-700 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add
+                    </button>
+                  </div>
                   <select
                     value={newBrandId}
                     onChange={(e) => setNewBrandId(e.target.value)}
@@ -727,7 +794,16 @@ export const ProductsPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Category *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700">Category *</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        className="text-emerald-700 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add
+                      </button>
+                    </div>
                     <select
                       required
                       value={editCategoryId}
@@ -743,7 +819,16 @@ export const ProductsPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Brand (Optional)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700">Brand (Optional)</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsBrandModalOpen(true)}
+                        className="text-emerald-700 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add
+                      </button>
+                    </div>
                     <select
                       value={editBrandId}
                       onChange={(e) => setEditBrandId(e.target.value)}
@@ -944,6 +1029,41 @@ export const ProductsPage: React.FC = () => {
         onClose={() => setPrintingVariant(null)}
         variant={printingVariant}
         settings={settings}
+      />
+
+      {/* Quick Category Modal */}
+      <QuickCategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        existingCategories={categories}
+        onCategoryCreated={(newCat) => {
+          setCategories((prev) => {
+            const exists = prev.some((c) => c.id === newCat.id);
+            return exists ? prev : [...prev, newCat];
+          });
+          if (isModalOpen) setNewCategoryId(newCat.id);
+          if (isEditModalOpen) setEditCategoryId(newCat.id);
+        }}
+      />
+
+      {/* Quick Brand Modal */}
+      <QuickBrandModal
+        isOpen={isBrandModalOpen}
+        onClose={() => setIsBrandModalOpen(false)}
+        onBrandCreated={(newBrand) => {
+          setBrands((prev) => {
+            const exists = prev.some((b) => b.id === newBrand.id);
+            return exists ? prev : [...prev, newBrand];
+          });
+          if (isModalOpen) setNewBrandId(newBrand.id);
+          if (isEditModalOpen) setEditBrandId(newBrand.id);
+        }}
+      />
+      {/* Variant Stock Audit History Modal */}
+      <VariantStockHistoryModal
+        isOpen={Boolean(selectedHistoryVariant)}
+        onClose={() => setSelectedHistoryVariant(null)}
+        variant={selectedHistoryVariant}
       />
     </div>
   );

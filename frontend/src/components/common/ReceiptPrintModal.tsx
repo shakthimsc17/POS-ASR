@@ -307,6 +307,18 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({
                   </div>
                 )}
 
+                {/* Exchanged Garment Returns Deduction */}
+                {order.returns && order.returns.length > 0 && (
+                  <div className="py-1 border-t border-dotted border-black space-y-1">
+                    {order.returns.map((ret: any, rIdx: number) => (
+                      <div key={rIdx} className="flex justify-between font-black text-sm text-black">
+                        <span className="truncate pr-2">Less Exchange ({ret.reason || 'Garment Return'}):</span>
+                        <span>-₹{Number(ret.refundAmount).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Net Payable - Prominent & Full Width */}
                 <div className="flex justify-between items-center py-2.5 border-y-2 border-black my-1.5 text-black w-full">
                   <span className="text-base font-black tracking-tight uppercase">NET PAYABLE:</span>

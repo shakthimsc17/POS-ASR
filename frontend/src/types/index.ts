@@ -107,6 +107,21 @@ export interface OrderItem {
   itemProfit?: number;
 }
 
+export interface OrderExchangeDetail {
+  id: string;
+  variantId: string;
+  productName: string;
+  itemCode: string;
+  size: string;
+  color: string;
+  barcode: string;
+  quantity: number;
+  unitCost?: number;
+  unitSelling: number;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   invoiceNumber: string;
@@ -126,6 +141,12 @@ export interface Order {
   cancellationReason?: string;
   createdAt: string;
   items: OrderItem[];
+  returns?: Array<{ id?: string; refundAmount: number; reason: string; createdAt?: string }>;
+  exchangeDetails?: OrderExchangeDetail[];
+  totalExchangeCredit?: number;
+  restockedCost?: number;
+  soldItemsProfit?: number;
+  netBillProfit?: number;
   totalCogs?: number;
   grossProfit?: number;
 }

@@ -28,8 +28,19 @@ export const getDashboardSummary = async (req: AuthenticatedRequest, res: Respon
           todayCogs += Number(item.costPriceSnapshot) * item.quantity;
         }
       }
+      // Deduct inventory cost of returned garments restocked today
+      const todayReturns = await prisma.stockMovement.findMany({
+        where: {
+          createdAt: { gte: startOfToday },
+          type: 'SALE_RETURN',
+        },
+        include: { variant: { select: { costPrice: true } } },
+      });
+      for (const ret of todayReturns) {
+        todayCogs -= Number(ret.variant.costPrice || 0) * ret.quantity;
+      }
     }
-    const todayGrossProfit = isAdmin ? todaySales - todayCogs : undefined;
+    const todayGrossProfit = isAdmin ? todaySales - Math.max(0, todayCogs) : undefined;
 
     // 2. Low stock count
     const lowStockCount = await prisma.productVariant.count({
@@ -225,6 +236,22 @@ export const getProfitLossReport = async (req: AuthenticatedRequest, res: Respon
         cogs += Number(item.costPriceSnapshot) * item.quantity;
       });
     });
+
+    // Deduct restocked inventory cost from COGS during this period
+    const periodReturns = await prisma.stockMovement.findMany({
+      where: {
+        createdAt: {
+          ...(startDate && { gte: new Date(String(startDate)) }),
+          ...(endDate && { lte: new Date(String(endDate)) }),
+        },
+        type: 'SALE_RETURN',
+      },
+      include: { variant: { select: { costPrice: true } } },
+    });
+    for (const ret of periodReturns) {
+      cogs -= Number(ret.variant.costPrice || 0) * ret.quantity;
+    }
+    cogs = Math.max(0, cogs);
 
     const grossProfit = netSales - cogs;
     const grossMarginPercent = netSales > 0 ? ((grossProfit / netSales) * 100).toFixed(2) : '0.00';
